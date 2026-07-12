@@ -1,4 +1,4 @@
-"""Event Scraper - updated for current site + Playwright"""
+"""Event Scraper - Incremental (only new events)"""
 
 import datetime
 import pandas as pd
@@ -13,17 +13,20 @@ class EventScraper:
         self.curr_time = datetime.datetime.now()
 
     def run(self):
-        print("Starting Event Scraper...")
+        print("Starting Event Scraper (incremental)...")
 
         print("→ Fetching event URLs...")
         event_urls = self._get_individual_event_urls()
 
-        print(f"→ Found {len(event_urls)} events.")
-        self._scrape_and_store_events(event_urls)
+        print(f"→ Found {len(event_urls)} events. Checking which are new...")
+        new_events = self._filter_new_events(event_urls)
+
+        print(f"→ {len(new_events)} new events to scrape.")
+        self._scrape_and_store_events(new_events)
 
         print("✅ Event Scraper completed.")
 
-    def _get_individual_event_urls(self) -> list:
+    def _get_individual_event_urls(self):
         soup = get_soup(EVENTS_COMPLETED_URL)
         links = soup.find_all("a", href=True)
         urls = []
@@ -35,7 +38,21 @@ class EventScraper:
                     urls.append(full)
         return urls
 
-    def _scrape_and_store_events(self, event_urls: list):
+    def _filter_new_events(self, event_urls):
+        """Return only events not already in the database"""
+        new_urls = []
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            for url in event_urls:
+                # We need event name + date to check uniqueness
+                # For simplicity we check by URL for now (or improve later)
+                cursor.execute("SELECT 1 FROM events WHERE event_name LIKE ? LIMIT 1", 
+                               (f"%{url.split('/')[-1]}%",))
+                if not cursor.fetchone():
+                    new_urls.append(url)
+        return new_urls
+
+    def _scrape_and_store_events(self, event_urls):
         with get_connection() as conn:
             for i, url in enumerate(event_urls):
                 try:

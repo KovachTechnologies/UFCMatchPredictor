@@ -45,3 +45,6 @@ data/raw/
 # OS
 .DS_Store
 Thumbs.db
+
+debug/*
+*html
