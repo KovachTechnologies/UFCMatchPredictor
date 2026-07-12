@@ -2,7 +2,9 @@
 
 import argparse
 from ufc.db import init_db
-# from ufc.scraper.fighters import FighterScraper   # will be added next
+from ufc.scraper.fighters import FighterScraper
+from ufc.scraper.events import EventScraper
+from ufc.scraper.odds import OddsScraper
 
 
 def main():
@@ -19,7 +21,7 @@ def main():
     )
     parser.add_argument(
         "--events", action="store_true",
-        help="Run event scraper"
+        help="Run event scraper (incremental)"
     )
     parser.add_argument(
         "--odds", action="store_true",
@@ -27,7 +29,7 @@ def main():
     )
     parser.add_argument(
         "--all", action="store_true",
-        help="Run all scrapers"
+        help="Run all scrapers in recommended order"
     )
 
     args = parser.parse_args()
@@ -38,16 +40,15 @@ def main():
 
     if args.fighters or args.all:
         print("\n=== Running Fighter Scraper ===")
-        # FighterScraper().run()
-        print("(Coming in next increment)")
+        FighterScraper().run()
 
     if args.events or args.all:
         print("\n=== Running Event Scraper ===")
-        print("(Not yet implemented)")
+        EventScraper().run()
 
     if args.odds or args.all:
         print("\n=== Running Odds Scraper ===")
-        print("(Not yet implemented)")
+        OddsScraper().run()
 
     if not any([args.init_db, args.fighters, args.events, args.odds, args.all]):
         parser.print_help()

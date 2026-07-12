@@ -3,7 +3,7 @@
 from pathlib import Path
 
 # Project root
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 DB_PATH = DATA_DIR / "ufc.db"
 
@@ -21,7 +21,7 @@ BETMMA_ODDS_URL = "https://www.betmma.tips/past_mma_handicapper_performance_all.
 REQUEST_DELAY_RANGE = (1.5, 3.5)  # seconds
 USER_AGENT = "UFC-Predictor-Research/0.1 (academic use; respectful scraper)"
 
-# Weight classes (for later validation)
+# Weight classes
 WEIGHT_CLASSES = [
     "Women's Strawweight", "Women's Flyweight", "Women's Bantamweight",
     "Women's Featherweight", "Flyweight", "Bantamweight", "Featherweight",
