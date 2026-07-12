@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "ufc-match-predictor"
+version = "0.1.0"
+description = "Data-driven UFC match outcome prediction using scraped events, fighter stats, and betting odds"
+authors = ["quantguy"]
+readme = "README.md"
+packages = [{include = "ufc", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+beautifulsoup4 = "^4.12.2"
+pandas = "^2.0.0"
+numpy = "^1.24.0"
+requests = "^2.31.0"
+python-dateutil = "^2.8.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+black = "^23.0.0"
+ruff = "^0.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+ufc-scraper = "cli:main"
