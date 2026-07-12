@@ -1,10 +1,9 @@
-"""Fighter Scraper - fetches individual fighter stats"""
+"""Fighter Scraper - DEBUG VERSION"""
 
 import string
 import datetime
 from typing import Dict
-
-import pandas as pd
+import os
 
 from ufc.config import FIGHTER_INDEX_URL
 from ufc.db import get_connection, upsert_fighter
@@ -12,42 +11,62 @@ from ufc.scraper.base import get_soup, sleep_randomly
 
 
 class FighterScraper:
-    """Scrape UFC fighter stats and store in SQLite"""
-
     def __init__(self):
         self.curr_time = datetime.datetime.now()
 
     def run(self):
-        """Full pipeline: fetch all fighter URLs then scrape stats"""
         print("Starting Fighter Scraper...")
 
-        print("→ Fetching individual fighter URLs from index pages...")
+        print("→ Fetching individual fighter URLs...")
         fighter_urls = self._get_all_individual_fighter_urls()
 
-        print(f"→ Found {len(fighter_urls)} fighter pages. Now scraping stats...")
+        print(f"→ Found {len(fighter_urls)} fighter pages.")
+        if len(fighter_urls) == 0:
+            print("DEBUG: No URLs found - saving sample HTML for inspection...")
+            self._save_debug_html()
+
+        print("Scraping...")
         self._scrape_and_store_fighters(fighter_urls)
 
         print("✅ Fighter Scraper completed.")
 
     def _get_all_individual_fighter_urls(self) -> list:
-        """Scrape all individual fighter profile URLs from A-Z index pages"""
         letters = list(string.ascii_lowercase)
         all_urls = []
 
-        for letter in letters:
+        for letter in letters: 
             url = FIGHTER_INDEX_URL.format(letter=letter)
+            print(f"  DEBUG: Scraping index for letter '{letter}' -> {url}")
             soup = get_soup(url)
-            links = soup.find_all("a", class_="b-link b-link_style_black")
+
+            links = soup.find_all("a", href=True)
+            print(f"    DEBUG: Found {len(links)} total <a> tags")
+
+            fighter_count = 0
             for link in links:
                 href = link.get("href")
-                if href and href not in all_urls:
-                    all_urls.append(href)
+                if href and "/fighter-details/" in href:
+                    full_url = "http://ufcstats.com" + href if not href.startswith("http") else href
+                    if full_url not in all_urls:
+                        all_urls.append(full_url)
+                        fighter_count += 1
+
+            print(f"    DEBUG: Found {fighter_count} fighter links for '{letter}'")
             sleep_randomly()
 
-        return all_urls
+        return list(dict.fromkeys(all_urls))
 
-    def _scrape_and_store_fighters(self, fighter_urls: list):
-        """Scrape stats for each fighter and upsert into DB"""
+    def _save_debug_html(self):
+        """Save a sample page for manual inspection"""
+        try:
+            soup = get_soup(FIGHTER_INDEX_URL.format(letter="a"))
+            with open("debug_fighters_a.html", "w", encoding="utf-8") as f:
+                f.write(str(soup))
+            print("DEBUG: Saved debug_fighters_a.html in project root")
+        except Exception as e:
+            print(f"DEBUG: Could not save HTML: {e}")
+
+    def _scrape_and_store_fighters(self, fighter_urls):
         with get_connection() as conn:
             for i, url in enumerate(fighter_urls):
                 try:
@@ -55,8 +74,8 @@ class FighterScraper:
                     upsert_fighter(conn, stats)
                     print(f"  [{i+1:4d}/{len(fighter_urls)}] {stats['name']} ✔️")
                 except Exception as e:
-                    print(f"  Error scraping {url}: {e}")
-                sleep_randomly(1.0, 2.5)
+                    print(f"  Error {url}: {e}")
+                sleep_randomly(2, 4)
 
     def _get_single_fighter_stats(self, fighter_url: str) -> Dict:
         """Parse a single fighter profile page"""

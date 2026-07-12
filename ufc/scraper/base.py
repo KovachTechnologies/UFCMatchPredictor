@@ -1,25 +1,23 @@
-"""Common scraping utilities"""
+"""Common scraping utilities - Playwright version for Cloudflare"""
 
 import time
 import random
 from typing import Optional
+from playwright.sync_api import sync_playwright
 
-import requests
-from bs4 import BeautifulSoup
-
-from ufc.config import USER_AGENT, REQUEST_DELAY_RANGE
-
-
-def get_soup(url: str, timeout: int = 15) -> BeautifulSoup:
-    """Fetch URL and return BeautifulSoup object."""
-    headers = {"User-Agent": USER_AGENT}
-    resp = requests.get(url, headers=headers, timeout=timeout)
-    resp.raise_for_status()
-    return BeautifulSoup(resp.text, "html.parser")
+def get_soup(url: str, timeout: int = 30):
+    """Fetch page with Playwright (bypasses JS challenges)"""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url, wait_until="networkidle", timeout=timeout*1000)
+        html = page.content()
+        browser.close()
+        from bs4 import BeautifulSoup
+        return BeautifulSoup(html, "html.parser")
 
 
 def sleep_randomly(min_sec: Optional[float] = None, max_sec: Optional[float] = None):
-    """Sleep randomly to be polite to websites."""
-    lo = min_sec or REQUEST_DELAY_RANGE[0]
-    hi = max_sec or REQUEST_DELAY_RANGE[1]
+    lo = min_sec or 1.5
+    hi = max_sec or 3.5
     time.sleep(random.uniform(lo, hi))
