@@ -16,10 +16,24 @@ logger = logging.getLogger(__name__)
 DEBUG_DIR = PROJECT_ROOT / "debug"
 DEBUG_DIR.mkdir(exist_ok=True)
 
+# Phrases commonly used by JS-challenge / anti-bot interstitials (Cloudflare
+# and similar). If a page's visible text matches one of these, it's not that
+# the site's structure changed - it's that we got a challenge shell instead
+# of real content.
+CHALLENGE_MARKERS = ("checking your browser", "requires javascript", "just a moment", "attention required")
+
+MAX_DEBUG_SAVES = 3  # cap how many debug files we write per run, to avoid spamming 26 near-identical files
+
+
+def _looks_like_challenge_page(soup) -> bool:
+    text = soup.get_text(" ", strip=True).lower()
+    return any(marker in text for marker in CHALLENGE_MARKERS) or len(text) < 200
+
 
 class FighterScraper:
     def __init__(self):
         self.curr_time = datetime.datetime.now()
+        self._debug_saves = 0
 
     def run(self):
         logger.info("Starting Fighter Scraper (full refresh)...")
@@ -27,7 +41,9 @@ class FighterScraper:
 
         if not fighter_urls:
             logger.error("No fighter URLs found at all - aborting before touching the DB. "
-                         f"See {DEBUG_DIR / 'fighters_index_failure.html'} if it was written.")
+                         f"Check {DEBUG_DIR} for saved raw HTML from the failing pages - if it "
+                         f"shows a 'checking your browser' / JS-challenge message, the site is "
+                         f"blocking the scraper rather than having changed its page structure.")
             return
 
         logger.info(f"Found {len(fighter_urls)} fighter pages. Scraping...")
@@ -59,7 +75,7 @@ class FighterScraper:
         for letter in letters:
             url = FIGHTER_INDEX_URL.format(letter=letter)
             try:
-                soup = get_soup(url)
+                soup = get_soup(url, wait_selector="a[href*='fighter-details']")
                 links = soup.find_all("a", href=True)
                 found_this_letter = 0
                 for link in links:
@@ -69,8 +85,24 @@ class FighterScraper:
                         if full_url not in all_urls:
                             all_urls.append(full_url)
                             found_this_letter += 1
+
                 if found_this_letter == 0:
-                    logger.warning(f"No fighter links found for letter '{letter}' - page may have changed")
+                    if _looks_like_challenge_page(soup):
+                        logger.error(
+                            f"Letter '{letter}' returned what looks like a JS challenge / "
+                            f"anti-bot interstitial, not real content - this is not a page "
+                            f"structure change."
+                        )
+                    else:
+                        logger.warning(f"No fighter links found for letter '{letter}' - page may have changed")
+
+                    if self._debug_saves < MAX_DEBUG_SAVES:
+                        debug_path = DEBUG_DIR / f"fighters_index_failure_{letter}.html"
+                        with open(debug_path, "w", encoding="utf-8") as f:
+                            f.write(str(soup))
+                        self._debug_saves += 1
+                        logger.info(f"Saved raw page HTML to {debug_path}")
+
             except Exception as e:
                 logger.warning(f"Could not scrape index for letter '{letter}': {e}")
                 failed_letters.append(letter)
@@ -85,7 +117,7 @@ class FighterScraper:
         def clean_text(s):
             return s.strip().replace("\n", "").replace(" ", "").replace('\\', '') if s else None
 
-        soup = get_soup(fighter_url)
+        soup = get_soup(fighter_url, wait_selector="span.b-content__title-highlight")
 
         name_el = soup.find("span", class_="b-content__title-highlight")
         if not name_el:
@@ -154,7 +186,7 @@ class FighterScraper:
             if "'" in height_str:
                 feet, inches = map(int, height_str.replace('"', '').split("'"))
                 return feet * 30.48 + inches * 2.54
-            return float(height_str) * 2.54
+            return float(height_str.replace('"', '')) * 2.54
         except Exception:
             return None
 
