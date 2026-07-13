@@ -35,6 +35,7 @@ venv/
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/*.png
 data/raw/
 *.csv
 *.parquet
