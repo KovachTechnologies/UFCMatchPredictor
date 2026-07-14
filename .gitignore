@@ -51,3 +51,9 @@ debug/*
 *html
 
 *DS_Store
+
+predictions/*
+
+*_original.py
+*.py.bak
+*.joblib
