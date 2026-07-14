@@ -368,3 +368,64 @@ def update_scrape_metadata(conn, source: str, full: bool):
                 last_incremental_scrape = excluded.last_incremental_scrape
         """, {"source": source, "ts": now})
     conn.commit()
+
+
+def get_fighter_dob(conn, fighter_id: int) -> Optional[str]:
+    """Return DOB for a fighter (or None)."""
+    row = conn.execute(
+        "SELECT dob FROM fighters WHERE fighter_id = ?", (fighter_id,)
+    ).fetchone()
+    dob = row["dob"] if row else None
+    if not dob:
+        logger.debug(f"No DOB found for fighter_id {fighter_id}")
+    return dob
+
+
+def get_fighter_win_rate(conn, fighter_id: int) -> dict:
+    """
+    Calculate win rate for a fighter. More robust outcome matching.
+    """
+    if fighter_id is None:
+        return {"wins": 0, "losses": 0, "draws": 0, "nc": 0, "total": 0, "win_rate": None}
+
+    query = """
+        SELECT 
+            SUM(CASE WHEN outcome IN ('fighter1', 'Fighter1', '1') THEN 1 ELSE 0 END) as wins_f1,
+            SUM(CASE WHEN outcome IN ('fighter2', 'Fighter2', '2') THEN 1 ELSE 0 END) as losses_f1,
+            SUM(CASE WHEN outcome IN ('Draw', 'draw', 'DRAW') THEN 1 ELSE 0 END) as draws_f1,
+            SUM(CASE WHEN outcome IN ('No Contest', 'NC', 'no contest', 'No contest') THEN 1 ELSE 0 END) as nc_f1
+        FROM bouts 
+        WHERE fighter1_id = ?
+    """
+    row1 = conn.execute(query, (fighter_id,)).fetchone()
+
+    query2 = """
+        SELECT 
+            SUM(CASE WHEN outcome IN ('fighter2', 'Fighter2', '2') THEN 1 ELSE 0 END) as wins_f2,
+            SUM(CASE WHEN outcome IN ('fighter1', 'Fighter1', '1') THEN 1 ELSE 0 END) as losses_f2,
+            SUM(CASE WHEN outcome IN ('Draw', 'draw', 'DRAW') THEN 1 ELSE 0 END) as draws_f2,
+            SUM(CASE WHEN outcome IN ('No Contest', 'NC', 'no contest', 'No contest') THEN 1 ELSE 0 END) as nc_f2
+        FROM bouts 
+        WHERE fighter2_id = ?
+    """
+    row2 = conn.execute(query2, (fighter_id,)).fetchone()
+
+    wins = (row1["wins_f1"] or 0) + (row2["wins_f2"] or 0)
+    losses = (row1["losses_f1"] or 0) + (row2["losses_f2"] or 0)
+    draws = (row1["draws_f1"] or 0) + (row2["draws_f2"] or 0)
+    nc = (row1["nc_f1"] or 0) + (row2["nc_f2"] or 0)
+
+    total = wins + losses + draws + nc
+    win_rate = round(wins / total, 4) if total > 0 else None
+
+    if total == 0:
+        logger.debug(f"Fighter {fighter_id} has no recorded bouts → win_rate=None")
+
+    return {
+        "wins": wins,
+        "losses": losses,
+        "draws": draws,
+        "nc": nc,
+        "total": total,
+        "win_rate": win_rate
+    }
