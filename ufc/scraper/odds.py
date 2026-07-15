@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 DEBUG_DIR = PROJECT_ROOT / "debug"
 DEBUG_DIR.mkdir(exist_ok=True)
 
+ODDS_PATH = PROJECT_ROOT / "data" / "odds.csv"
+
 
 class OddsScraper:
     def __init__(self, incremental: bool = True, debug: bool = False):
@@ -159,6 +161,9 @@ class OddsScraper:
 
             self.event_links = ufc_events[["Date", "Event", "url"]].reset_index(drop=True)
             logger.info(f"Discovered {len(self.event_links)} UFC betting history pages.")
+
+            self.event_links.to_csv( ODDS_PATH, index=False )
+
 
         except Exception as e:
             logger.error(f"Failed to parse discovery page tables/links: {e}")

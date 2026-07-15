@@ -2,6 +2,45 @@
 
 Data-driven system to predict UFC bout outcomes and identify value bets by combining official match history, fighter statistics, and historic betting odds.
 
+## Running
+
+### Data Scraping
+```bash
+python3 -m ufc.scraper.fighters
+python3 -m ufc.scraper.events
+python3 -m ufc.scraper.odds
+```
+
+or 
+```bash
+./run.sh
+```
+
+### Feature/Training Set Generation
+Core features
+```bash
+python3 -m ufc.features.core
+```
+
+All features
+```bash
+python3 -m ufc.features.full
+```
+
+### Machine Learning Model 
+Core features
+```bash
+python3 -m ufc.ml.core --train   # train
+python3 -m ufc.ml.core --predict # predict
+```
+
+All features
+```bash
+python3 -m ufc.ml.full --train   # train
+python3 -m ufc.ml.full --predict # predict
+
+```
+
 ## Project Goals
 - Build a reliable, incrementally updatable data pipeline for UFC events, fighters, and odds.
 - Develop robust machine learning models with proper time-series cross-validation.
@@ -12,9 +51,7 @@ Data-driven system to predict UFC bout outcomes and identify value bets by combi
 **Phase 2: Feature Generation** (in progress)
 **Phase 3: ML Predictor** (in progress)
 
-We are building a clean, maintainable scraper that stores data in SQLite and supports independent updates via CLI flags.
-
-## Features
+## Training Set Features
 
 ### Core Fighter Attributes (static or slowly changing)
 
